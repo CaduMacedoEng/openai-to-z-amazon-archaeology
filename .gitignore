@@ -20,6 +20,7 @@ env/
 # 🗃 Dados (não versionar arquivos pesados)
 data/
 outputs/
+cache/
 writeup/*.pdf
 writeup/*.zip
 
