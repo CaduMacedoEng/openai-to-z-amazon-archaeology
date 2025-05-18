@@ -1,14 +1,15 @@
+
 import os
 import numpy as np
 import rasterio
 import requests
+import argparse
 
 def download_dtm(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
     api_key = os.getenv("OPENTOPO_API_KEY")
     if not api_key:
         raise ValueError("❌ API Key da OpenTopography não encontrada no ambiente!")
 
-    # Define bounding box
     delta = box_size_km / 111
     min_lat = center_lat - delta
     max_lat = center_lat + delta
@@ -41,7 +42,6 @@ def download_dtm(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
 
     print("✅ DTM salvo em cache:", output_path)
 
-    # 📍 Diagnóstico
     with rasterio.open(output_path) as src:
         print("📍 Bounding Box do DTM:")
         print(f" - Left:   {src.bounds.left}")
@@ -52,6 +52,11 @@ def download_dtm(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
 
     return output_path
 
-
 if __name__ == "__main__":
-    download_dtm(center_lat=-10.35, center_lon=-67.15)
+    parser = argparse.ArgumentParser(description="Baixar DTM com OpenTopography")
+    parser.add_argument("--lat", type=float, required=True, help="Latitude central da área")
+    parser.add_argument("--lon", type=float, required=True, help="Longitude central da área")
+    parser.add_argument("--box", type=float, default=2, help="Tamanho da área em km")
+
+    args = parser.parse_args()
+    download_dtm(center_lat=args.lat, center_lon=args.lon, box_size_km=args.box)

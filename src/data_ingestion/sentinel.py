@@ -1,3 +1,4 @@
+import argparse
 from sentinelhub import SHConfig, BBox, CRS, SentinelHubRequest, MimeType, DataCollection, bbox_to_dimensions
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,7 +7,7 @@ import tifffile
 import shutil
 import rasterio
 
-def download_rgb_ndvi(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
+def download_rgb_ndvi(center_lat, center_lon, box_size_km=2):
     config = SHConfig()
     config.sh_client_id = os.getenv("SENTINELHUB_CLIENT_ID")
     config.sh_client_secret = os.getenv("SENTINELHUB_CLIENT_SECRET")
@@ -19,6 +20,7 @@ def download_rgb_ndvi(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
     base_name = f"LAT{center_lat:.3f}_LON{center_lon:.3f}".replace("-", "m")
     rgb_cache_path = f"data/raw/sentinel2/{base_name}.tiff"
     scl_cache_path = f"data/raw/sentinel2/{base_name}_SCL.tiff"
+    base_dir = "data/raw/sentinel2/"
 
     # RGB + NDVI
     if os.path.exists(rgb_cache_path):
@@ -41,14 +43,12 @@ def download_rgb_ndvi(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
         """
 
         request = SentinelHubRequest(
-            data_folder='data/raw/sentinel2/',
+            data_folder=base_dir,
             evalscript=evalscript_rgb,
-            input_data=[
-                SentinelHubRequest.input_data(
-                    data_collection=DataCollection.SENTINEL2_L2A,
-                    time_interval=('2020-06-01', '2020-09-01'),
-                )
-            ],
+            input_data=[SentinelHubRequest.input_data(
+                data_collection=DataCollection.SENTINEL2_L2A,
+                time_interval=('2020-06-01', '2020-09-01'),
+            )],
             responses=[SentinelHubRequest.output_response('default', MimeType.TIFF)],
             bbox=bbox,
             size=size,
@@ -57,14 +57,8 @@ def download_rgb_ndvi(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
 
         data = request.get_data(save_data=True)
         image = np.array(data[0])
-
-        base_dir = "data/raw/sentinel2/"
-        subdirs = [d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))]
-        if not subdirs:
-            raise RuntimeError("❌ Nenhuma subpasta encontrada com o arquivo response.tiff (RGB).")
-        folder = subdirs[-1]
-        response_path = os.path.join(base_dir, folder, "response.tiff")
-        shutil.move(response_path, rgb_cache_path)
+        folder = [d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))][-1]
+        shutil.move(os.path.join(base_dir, folder, "response.tiff"), rgb_cache_path)
         shutil.rmtree(os.path.join(base_dir, folder))
         print(f"✅ RGB + NDVI salvo como {rgb_cache_path}")
 
@@ -85,14 +79,12 @@ def download_rgb_ndvi(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
         """
 
         request_scl = SentinelHubRequest(
-            data_folder='data/raw/sentinel2/',
+            data_folder=base_dir,
             evalscript=evalscript_scl,
-            input_data=[
-                SentinelHubRequest.input_data(
-                    data_collection=DataCollection.SENTINEL2_L2A,
-                    time_interval=('2020-06-01', '2020-09-01'),
-                )
-            ],
+            input_data=[SentinelHubRequest.input_data(
+                data_collection=DataCollection.SENTINEL2_L2A,
+                time_interval=('2020-06-01', '2020-09-01'),
+            )],
             responses=[SentinelHubRequest.output_response('default', MimeType.TIFF)],
             bbox=bbox,
             size=size,
@@ -100,14 +92,8 @@ def download_rgb_ndvi(center_lat=-10.35, center_lon=-67.15, box_size_km=2):
         )
 
         data_scl = request_scl.get_data(save_data=True)
-
-        base_dir = "data/raw/sentinel2/"
-        subdirs = [d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))]
-        if not subdirs:
-            raise RuntimeError("❌ Nenhuma subpasta encontrada com o arquivo response.tiff (SCL).")
-        folder = subdirs[-1]
-        scl_path = os.path.join(base_dir, folder, "response.tiff")
-        shutil.move(scl_path, scl_cache_path)
+        folder = [d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))][-1]
+        shutil.move(os.path.join(base_dir, folder, "response.tiff"), scl_cache_path)
         shutil.rmtree(os.path.join(base_dir, folder))
         print(f"✅ Banda SCL salva como {scl_cache_path}")
     else:
@@ -120,30 +106,14 @@ def normalize_band(band, lower=2, upper=98):
     return np.clip((band - p_low) / (p_high - p_low), 0, 1)
 
 if __name__ == "__main__":
-    image = download_rgb_ndvi(center_lat=-10.35, center_lon=-67.15)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--lat", type=float, required=True, help="Latitude central")
+    parser.add_argument("--lon", type=float, required=True, help="Longitude central")
+    parser.add_argument("--box", type=float, default=2.0, help="Tamanho da área (em km)")
+    args = parser.parse_args()
+
+    image = download_rgb_ndvi(center_lat=args.lat, center_lon=args.lon, box_size_km=args.box)
 
     print("📊 Intervalo RGB:")
     for i, color in enumerate(['R', 'G', 'B']):
         print(f"{color}: {image[:, :, i].min()} → {image[:, :, i].max()}")
-
-    rgb_norm = np.stack([
-        normalize_band(image[:, :, 0]),
-        normalize_band(image[:, :, 1]),
-        normalize_band(image[:, :, 2])
-    ], axis=-1)
-
-    plt.figure(figsize=(10, 5))
-
-    plt.subplot(1, 2, 1)
-    plt.imshow(rgb_norm)
-    plt.title("Sentinel-2 RGB")
-    plt.axis("off")
-
-    plt.subplot(1, 2, 2)
-    plt.imshow(image[:, :, 3], cmap="RdYlGn")
-    plt.colorbar(label="NDVI")
-    plt.title("NDVI")
-    plt.axis("off")
-
-    plt.tight_layout()
-    plt.show()
