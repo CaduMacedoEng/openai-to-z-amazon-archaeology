@@ -1,8 +1,41 @@
+# 🐍 Python
 *.pyc
 __pycache__/
-.ipynb_checkpoints/
-data/
+*.pyo
+*.pyd
+
+# 💻 Ambiente virtual
 venv/
-outputs/
+env/
+.venv/
+
+# 📓 Jupyter
+.ipynb_checkpoints/
+*.ipynb~
+
+# 🔒 Configurações sensíveis
 .env
+*.env
+
+# 🗃 Dados (não versionar arquivos pesados)
+data/
+outputs/
+writeup/*.pdf
+writeup/*.zip
+
+# 🧪 Logs e arquivos temporários
+*.log
+*.tmp
+
+# 🖼️ Cache e arquivos do sistema
 .DS_Store
+Thumbs.db
+
+# 📦 Pacotes Python
+dist/
+build/
+*.egg-info/
+
+# 🚫 Arquivos de IDEs
+.vscode/
+.idea/
